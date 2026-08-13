@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110d">
+<title>Beat Our Hand</title>
+<style>
+  :root{--paper:#f6f1e7;--card:#fbf8f1;--ink:#211d16;--faint:#6f6656;--line:#d8cfba;
+        --accent:#a63d2f;--green:#3f7050;--gold:#c9a227;--stage:#14110d}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{background:radial-gradient(ellipse 120% 60% at 50% 0%, #2a241c 0%, var(--stage) 55%);
+       background-attachment:fixed;min-height:100vh;color:var(--paper);
+       font-family:Georgia,'Iowan Old Style',serif;padding:26px 14px 60px}
+  .wrap{max-width:560px;margin:0 auto}
+  h1{font-size:1.9rem;font-weight:normal;text-align:center}
+  h1 .tophat{color:var(--gold)}
+  .tag{text-align:center;color:#b9ad91;font-style:italic;margin:6px 0 2px;font-size:.95rem;line-height:1.5}
+  .ourscore{text-align:center;margin:8px 0 4px;font-size:1rem;color:#b9ad91}
+  .ourscore b{color:var(--gold);font-family:Menlo,monospace;font-size:1.15rem}
+  .startwrap{text-align:center;margin:30px 0}
+  .lock{font:inherit;font-size:.95rem;padding:10px 14px;border:2px solid var(--gold);background:var(--gold);
+        color:var(--stage);border-radius:8px;cursor:pointer;white-space:nowrap;font-weight:bold}
+  .lock:disabled{opacity:.4}
+  .big{font-size:1.2rem;padding:14px 38px}
+  .lcard{background:var(--card);color:var(--ink);border-radius:12px;padding:14px 14px 12px;
+         box-shadow:0 8px 24px rgba(0,0,0,.5), 0 0 0 1px #00000022;position:relative;
+         transform:rotate(var(--tilt,0deg));margin:14px 0}
+  .lcard .suit{position:absolute;top:8px;left:10px;font-size:1rem}
+  .lcard .suit.red{color:var(--accent)}
+  .lcard .corner{position:absolute;bottom:8px;right:10px;font-size:1rem;transform:rotate(180deg)}
+  .lcard h3{font-size:1rem;text-align:center;margin:2px 0 10px}
+  .opt{display:block;width:100%;text-align:left;font:inherit;font-size:.92rem;margin:6px 0;
+       padding:12px 12px;border:1.5px solid var(--line);background:none;border-radius:8px;
+       cursor:pointer;color:var(--ink);-webkit-tap-highlight-color:transparent}
+  .opt.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .progress{font:13px Menlo,monospace;color:#b9ad91;text-align:center;margin:6px 0 2px}
+  @keyframes dealin{from{opacity:0;transform:translateY(18px) rotate(var(--tilt,0deg)) scale(.97)}
+    to{opacity:1;transform:translateY(0) rotate(var(--tilt,0deg))}}
+  .lcard.deal{animation:dealin .28s ease-out}
+  #blackout{position:fixed;inset:0;background:#000;z-index:50;display:flex;align-items:center;
+       justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .6s}
+  #blackout.show{opacity:1;pointer-events:auto}
+  #blackout .warncard{max-width:420px;text-align:center;opacity:0}
+  #blackout.show .warncard{animation:fadeup .6s ease-out 1.1s both}
+  @keyframes fadeup{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  #blackout h2{font-size:1.3rem;font-weight:normal;margin-bottom:14px}
+  #blackout p{line-height:2;color:#d8cfba;margin-bottom:20px;font-size:.98rem}
+  #blackout b{color:var(--paper)}
+  .panel{background:var(--card);color:var(--ink);border-radius:12px;padding:18px;
+         box-shadow:0 8px 24px rgba(0,0,0,.5);margin:14px 0}
+  .panel h3{font-size:1rem;font-style:italic;color:var(--faint);font-weight:normal}
+  .intro p{font-size:.95rem;line-height:1.65;margin:8px 0 14px}
+  .intro .warn{color:var(--accent);font-weight:bold}
+  .introrow{display:flex;gap:8px}
+  input[type=text]{font:inherit;font-size:16px;padding:10px;border:1.5px solid var(--line);
+       border-radius:8px;flex:1;min-width:0;background:#fff;color:var(--ink)}
+  .score{font-family:Menlo,monospace;font-size:2.3rem;margin:6px 0;font-weight:bold}
+  .band{font-family:Menlo,monospace;font-size:.78rem;color:var(--faint)}
+  .vs{margin:12px 0;font-size:.9rem;line-height:1.7}
+  .vs .bar{height:10px;background:#e7dfcc;border-radius:5px;position:relative;margin:3px 0 9px}
+  .vs .fill{position:absolute;top:0;bottom:0;border-radius:5px}
+  .msg{border-left:4px solid var(--accent);background:#f3ece0;padding:9px 12px;font-size:.9rem;margin:10px 0}
+  .board table{width:100%;border-collapse:collapse;font-size:.88rem}
+  .board td,.board th{padding:6px 6px;border-bottom:1px solid var(--line);text-align:left}
+  .board th{font-style:italic;font-weight:normal;color:var(--faint)}
+  .board td.sc{font-family:Menlo,monospace;white-space:nowrap}
+  .board tr.house td{color:#8a6d1f;font-weight:bold}
+  .board tr.champ td{color:var(--green);font-weight:bold}
+  .board tr.me td{background:#f3ece0}
+  .cloudnote{text-align:center;font:11px Menlo,monospace;color:#6f6656;margin-top:8px}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="landing">
+    <h1><span class="tophat">🎩</span> Beat Our Hand</h1>
+    <p class="tag">Design your own federal sports-gambling policy.<br>
+    The machine scores it against 1,500 possible futures.</p>
+    <p class="ourscore">Our hand — the Balanced Package — scores <b id="ourVal">…</b> per year.<br>Think you can do better?</p>
+    <div class="startwrap"><button class="lock big" id="startBtn">Start ♠</button></div>
+  </div>
+
+  <div id="playView" class="hidden">
+    <div class="progress">Card <span id="cardNum">1</span> of 6 · picks are final</div>
+    <div id="cards"></div>
+  </div>
+
+  <div id="nameView" class="hidden">
+    <div class="panel intro">
+      <h3>All six cards played 🂠</h3>
+      <p>Your score is still face down. Sign your hand to flip it —
+      <span class="warn">it goes straight onto the class scoreboard.</span></p>
+      <div class="introrow">
+        <input type="text" id="pname" placeholder="your name" maxlength="18" autocomplete="off">
+        <button class="lock" id="revealBtn" disabled>Reveal ♠</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultView" class="hidden">
+    <div class="panel">
+      <h3 id="whoLine">Your policy scores</h3>
+      <div class="score" id="score"></div>
+      <div class="band" id="band"></div>
+      <div class="vs" id="vs"></div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="panel board">
+      <h3>🏆 Challengers</h3>
+      <table id="board"></table>
+      <div class="cloudnote" id="cloudnote"></div>
+    </div>
+  </div>
+</div>
+
+<div id="blackout">
+  <div class="warncard">
+    <h2>⚠️ House rules</h2>
+    <p>Six cards, dealt one at a time.<br>
+    <b>Every tap is final — there is no going back.</b><br>
+    Your score stays face down until the end.<br>
+    One hand per device.</p>
+    <button class="lock" id="dealBtn">I understand — deal ♠</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ===== cloud config — leave url empty to run fully offline (podium fallback) =====
+   Supabase free tier: create table `scores` (see README.md in this folder),
+   then paste the project URL and anon key here. The board RECOMPUTES every
+   score from the stored policy, so a tampered score field changes nothing. */
+const CLOUD={url:'', anonKey:'', table:'scores'};
+
+/* ===== engine — verbatim from federal-model-v2.html (same seed, same numbers) ===== */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; } }
+function tri(u, lo, md, hi){ const f=(md-lo)/(hi-lo);
+  return u<f ? lo+Math.sqrt(u*(hi-lo)*(md-lo)) : hi-Math.sqrt((1-u)*(hi-lo)*(hi-md)); }
+const THETA=[{id:'nRisk',lo:0.75,md:1,hi:1.3},{id:'nProb',lo:0.7,md:1,hi:1.4},{id:'lossMult',lo:0.75,md:1,hi:1.3},
+ {id:'lamP',lo:0.35,md:0.55,hi:0.8},{id:'lamR',lo:0.1,md:0.2,hi:0.35},{id:'ilMult',lo:1.2,md:1.5,hi:2.2},
+ {id:'attempts',lo:5,md:10,hi:18},{id:'caseCost',lo:0.1,md:0.3,hi:1.0},{id:'eff',lo:0.5,md:1,hi:1.3}];
+const NDRAW=1500;
+const DRAWS=(()=>{const rng=mulberry32(20260727);const out=[];
+  for(let i=0;i<NDRAW;i++){const t={};THETA.forEach(p=>t[p.id]=tri(rng(),p.lo,p.md,p.hi));out.push(t);}return out;})();
+const SEG=[{id:'rec',n:50,loss:100,ch:[0.82,0.02,0.16]},{id:'risk',n:8.5,loss:900,ch:[0.77,0.01,0.22]},
+           {id:'prob',n:1.5,loss:6500,ch:[0.63,0.02,0.35]}];
+const W={wS:1,wI:1,cs:0};
+function evaluate(pol, th){
+  const eff=th.eff; const dev=m=>1-(1-m)*eff;
+  const chH0={}; SEG.forEach(s0=>chH0[s0.id]=s0.ch[0]+s0.ch[1]*1.15+s0.ch[2]*th.ilMult);
+  const segs=SEG.map(s=>{let n=s.n*(s.id==='risk'?th.nRisk:s.id==='prob'?th.nProb:1);
+    return {id:s.id,L:n*s.loss*th.lossMult/1000,ch:[...s.ch]};});
+  segs.forEach(s=>{
+    if(pol.who===1){s.L*=dev(s.id==='rec'?0.90:s.id==='risk'?0.92:0.95);s.ch[2]+=0.02;s.ch[0]-=0.02;}
+    else if(pol.who===2){s.L*=dev(s.id==='rec'?0.30:s.id==='risk'?0.55:0.80);s.ch=[0,0,1];}
+    if(pol.pm===2&&pol.who!==2){const pms=s.ch[1];s.ch[1]=0;s.ch[0]+=pms*0.6;s.ch[2]+=pms*0.25;s.L*=(1-pms*0.15*eff);}
+    if(pol.pm===1&&pol.who!==2){s.ch[1]*=1.3;s.ch[2]-=Math.min(s.ch[2],0.03);s.ch[0]=1-s.ch[1]-s.ch[2];}
+    if(pol.prod>=1&&pol.who!==2&&s.id==='prob'){s.ch[2]+=0.03;s.ch[0]-=0.03;}
+    if(pol.prot===1&&pol.who!==2){s.ch[2]+=0.01;s.ch[0]-=0.01;}
+    if(pol.prot===2&&pol.who!==2){const p=(s.id==='prob'?0.06:0.02);s.ch[2]+=p;s.ch[0]-=p;}
+    if(pol.money>=1&&pol.who!==2){s.ch[2]+=0.02;s.ch[0]-=0.02;}
+    s.ch=s.ch.map(x=>Math.max(0,x)); const tot=s.ch[0]+s.ch[1]+s.ch[2]; s.ch=s.ch.map(x=>x/tot);
+    const reg=s.ch[0]+s.ch[1]; let cut=1;
+    if(pol.prod===1)cut*=dev(s.id==='prob'?0.78:s.id==='risk'?0.90:0.97);
+    if(pol.prod===2)cut*=dev(s.id==='prob'?0.62:s.id==='risk'?0.78:0.88);
+    if(pol.prot===1)cut*=dev(s.id==='prob'?0.93:s.id==='risk'?0.96:1);
+    if(pol.prot===2)cut*=dev(s.id==='prob'?0.78:s.id==='risk'?0.88:0.99);
+    s.L*=(1-reg*(1-cut));
+  });
+  let Ll=0,Lp=0,Li=0;
+  segs.forEach(s=>{Ll+=s.L*s.ch[0];Lp+=s.L*s.ch[1];Li+=s.L*s.ch[2];});
+  const totL=Ll+Lp+Li;
+  const tax=pol.money===0?0.22:0.30;
+  const excise=pol.who===2?0:Ll*0.0245;
+  const earm=pol.money===2?0.5*excise:0;
+  const pmT=pol.pm===1?Lp*tax:0;
+  const revenue=(pol.who===2?0:Ll*tax)+excise+pmT-earm;
+  const protF=pol.prot===2?dev(0.90):pol.prot===1?dev(0.97):1;
+  const pmH=pol.pm===1?1.0:1.15;
+  let harm=0;
+  segs.forEach(s=>{const lam=s.id==='prob'?th.lamP:s.id==='risk'?th.lamR:0;
+    const chHv=(s.ch[0]*protF+s.ch[1]*pmH*protF+s.ch[2]*th.ilMult)/chH0[s.id];
+    harm+=lam*s.L*chHv;});
+  if(pol.money===2)harm*=(1-0.03*eff);
+  const ilSh=totL>0?Li/totL:1;
+  const prodF=1-(1-(pol.prod===2?0.35:pol.prod===1?0.5:1))*(1-ilSh);
+  const integF=1-(1-(pol.integ===1?dev(0.5):1))*(1-ilSh);
+  const monF=Math.min(2.0,0.6+0.4*ilSh/0.26);
+  const integrity=th.attempts*Math.max(0.12,prodF*integF*monF)*th.caseCost;
+  const admin=(pol.who===2?0.5:0)+(pol.integ===1?0.02:0)+(pol.prot>0?0.02:0)+(pol.pm===1?0.01:0);
+  return revenue - W.wS*harm - W.wI*integrity - admin;
+}
+function mc(pol){ const us=DRAWS.map(t=>evaluate(pol,t));
+  const s=[...us].sort((a,b)=>a-b);
+  return {us, mean:us.reduce((a,b)=>a+b,0)/us.length, p10:s[Math.floor(0.1*us.length)], p90:s[Math.floor(0.9*us.length)]}; }
+
+/* ===== game ===== */
+const LEVERS=[
+ {id:'who', suit:'♠', red:false, name:'Who may bet', opts:['Everyone 21+','No college markets','Full prohibition']},
+ {id:'pm', suit:'♥', red:true, name:'Where — prediction markets', opts:['Leave them alone','Regulate + tax','Ban them']},
+ {id:'prod', suit:'♦', red:true, name:'Products allowed', opts:['Everything','No props / micro-bets','Straight bets only']},
+ {id:'prot', suit:'♣', red:false, name:'Player protection', opts:['None','Basic (self-exclusion + card ban)','Strict (affordability checks)']},
+ {id:'money', suit:'♥', red:true, name:'Money', opts:['Tax 22%','Tax 30%','Tax 30% + treatment fund']},
+ {id:'integ', suit:'♠', red:false, name:'Integrity rules', opts:['Status quo','Federal monitoring + insider ban']},
+];
+const A5={who:0,pm:1,prod:1,prot:1,money:2,integ:1};
+const SQPOL={who:0,pm:0,prod:0,prot:0,money:0,integ:0};
+const OUR=mc(A5), SQ=mc(SQPOL);
+document.getElementById('ourVal').textContent='−$'+Math.abs(OUR.mean).toFixed(2)+'B';
+const fmt=x=>(x<0?'−':'+')+'$'+Math.abs(x).toFixed(2)+'B';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const scoreCache=new Map();
+function meanOf(pol){ const k=JSON.stringify([pol.who,pol.pm,pol.prod,pol.prot,pol.money,pol.integ]);
+  if(!scoreCache.has(k)) scoreCache.set(k, mc(pol).mean); return scoreCache.get(k); }
+
+const LSKEY='beat-our-hand-lock';
+function saved(){ try{return JSON.parse(localStorage.getItem(LSKEY));}catch(e){return null;} }
+const $=id=>document.getElementById(id);
+
+let policy={}, step=0, advancing=false;
+
+/* stage 1: start → blackout with warning */
+$('startBtn').addEventListener('click',()=>{
+  if(saved()) return;
+  $('blackout').classList.add('show');
+});
+/* stage 2: warning acknowledged → deal card 1 */
+$('dealBtn').addEventListener('click',()=>{
+  $('landing').classList.add('hidden');
+  $('playView').classList.remove('hidden');
+  renderCard(0);
+  $('blackout').classList.remove('show');
+});
+/* stage 3: one card at a time, picks are final */
+function renderCard(i){
+  const lv=LEVERS[i];
+  $('cardNum').textContent=i+1;
+  const cardsEl=$('cards');
+  cardsEl.innerHTML='';
+  const d=document.createElement('div'); d.className='lcard deal';
+  d.style.setProperty('--tilt',((i%3)-1)*0.8+'deg');
+  d.innerHTML='<div class="suit'+(lv.red?' red':'')+'">'+lv.suit+'</div>'+
+    '<div class="corner'+(lv.red?' red':'')+'">'+lv.suit+'</div>'+
+    '<h3>'+lv.name+'</h3>'+
+    lv.opts.map((o,j)=>'<button class="opt" data-lv="'+lv.id+'" data-v="'+j+'">'+o+'</button>').join('');
+  cardsEl.appendChild(d);
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.opt'); if(!b||advancing) return;
+  advancing=true;
+  policy[b.dataset.lv]=+b.dataset.v;
+  b.classList.add('on');
+  setTimeout(()=>{
+    step++;
+    if(step<LEVERS.length){ renderCard(step); advancing=false; }
+    else{ $('playView').classList.add('hidden'); $('nameView').classList.remove('hidden'); }
+  },300);
+});
+/* stage 4: all cards played → sign the hand */
+$('pname').addEventListener('input',e=>{ $('revealBtn').disabled=!e.target.value.trim(); });
+$('revealBtn').addEventListener('click',()=>{
+  if(saved()) return;
+  const name=$('pname').value.trim().slice(0,18)||'Anonymous';
+  const rec={name, policy:{...policy}, score:mc(policy).mean, ts:Date.now()};
+  try{localStorage.setItem(LSKEY,JSON.stringify(rec));}catch(e){}
+  submitCloud(rec);
+  showResult(rec);
+});
+/* stage 5: reveal + live scoreboard */
+function showResult(rec){
+  policy=rec.policy;
+  ['landing','playView','nameView'].forEach(id=>$(id).classList.add('hidden'));
+  $('blackout').classList.remove('show');
+  $('resultView').classList.remove('hidden');
+  $('whoLine').textContent=rec.name+' — your policy scores';
+  const m=mc(rec.policy);
+  const pBeatSq=m.us.filter((u,i)=>u>SQ.us[i]).length/NDRAW;
+  const sc=$('score');
+  sc.textContent=fmt(m.mean);
+  sc.style.color=m.mean>OUR.mean?'var(--green)':m.mean>SQ.mean?'var(--ink)':'var(--accent)';
+  $('band').textContent='80% of futures: ['+fmt(m.p10)+' … '+fmt(m.p90)+'] · beats status quo in '+(100*pBeatSq).toFixed(0)+'%';
+  const lo=-20, hi=0;
+  const pos=v=>Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));
+  $('vs').innerHTML=
+    'you <span style="font-family:Menlo">'+fmt(m.mean)+'</span><div class="bar"><div class="fill" style="left:0;width:'+pos(m.mean)+'%;background:'+(m.mean>OUR.mean?'var(--green)':'#8a6d1f')+'"></div></div>'+
+    'our hand <span style="font-family:Menlo">'+fmt(OUR.mean)+'</span><div class="bar"><div class="fill" style="left:0;width:'+pos(OUR.mean)+'%;background:var(--gold)"></div></div>'+
+    'do nothing <span style="font-family:Menlo">'+fmt(SQ.mean)+'</span><div class="bar"><div class="fill" style="left:0;width:'+pos(SQ.mean)+'%;background:#b9ad91"></div></div>';
+  const msg=$('msg');
+  if(rec.policy.who===2) msg.innerHTML='Bold. Prohibition… the demand does not disappear — it goes where nobody is watching. 👀';
+  else if(m.mean>OUR.mean) msg.innerHTML='🎩 <b>You beat Congress!</b> …and yes, we knew: 17 of all 486 combos edge past our hand — all within ±$0.6B, inside the error bars. Ours is the one that can actually pass. Take a bow anyway.';
+  else if(m.mean>SQ.mean) msg.innerHTML='Better than doing nothing — but '+fmt(m.mean-OUR.mean)+' behind our hand. One shot, no retries — that is how policy works too.';
+  else msg.innerHTML='That is <b>worse than doing nothing at all.</b> The illegal market thanks you for your service.';
+  renderBoard([localRow(rec)]);
+  startPolling(rec);
+}
+function localRow(rec){ return {name:rec.name, policy:rec.policy, me:true}; }
+
+/* ===== scoreboard — scores are RECOMPUTED from policy, never trusted ===== */
+function renderBoard(rows){
+  const all=[{name:'🎩 The House (A5)', policy:A5, house:true}, ...rows]
+    .map(r=>({...r, mean:meanOf(r.policy)}))
+    .sort((a,b)=>b.mean-a.mean);
+  $('board').innerHTML='<tr><th>#</th><th>name</th><th>score $B/yr</th></tr>'+
+    all.map((r,i)=>'<tr class="'+(r.house?'house':(r.mean>OUR.mean?'champ':''))+(r.me?' me':'')+'"><td>'+(i+1)+'</td><td>'+
+      esc(r.name)+(r.me?' (you)':'')+'</td><td class="sc">'+fmt(r.mean)+'</td></tr>').join('');
+}
+function validPolicy(p){ return p && [0,1,2].includes(p.who)&&[0,1,2].includes(p.pm)&&[0,1,2].includes(p.prod)
+  &&[0,1,2].includes(p.prot)&&[0,1,2].includes(p.money)&&[0,1].includes(p.integ); }
+async function submitCloud(rec){
+  if(!CLOUD.url) return;
+  try{
+    await fetch(CLOUD.url+'/rest/v1/'+CLOUD.table,{method:'POST',
+      headers:{'apikey':CLOUD.anonKey,'Authorization':'Bearer '+CLOUD.anonKey,
+               'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({name:rec.name, score:rec.score, policy:rec.policy})});
+  }catch(e){}
+}
+async function fetchCloud(){
+  const r=await fetch(CLOUD.url+'/rest/v1/'+CLOUD.table+'?select=name,policy,created_at&order=created_at.asc&limit=200',
+    {headers:{'apikey':CLOUD.anonKey,'Authorization':'Bearer '+CLOUD.anonKey}});
+  if(!r.ok) throw new Error(r.status);
+  return (await r.json()).filter(row=>validPolicy(row.policy))
+    .map(row=>({name:String(row.name||'Anonymous').slice(0,18), policy:row.policy}));
+}
+function startPolling(rec){
+  const note=$('cloudnote');
+  if(!CLOUD.url){ note.textContent='offline mode — this device only'; return; }
+  const tick=async()=>{
+    try{
+      const rows=await fetchCloud();
+      let mine=false;
+      const marked=rows.map(r=>{ if(!mine && r.name===rec.name &&
+        JSON.stringify(r.policy)===JSON.stringify(rec.policy)){mine=true;return {...r,me:true};} return r;});
+      renderBoard(mine?marked:[...marked, localRow(rec)]);
+      note.textContent='live · '+rows.length+' challenger'+(rows.length===1?'':'s');
+    }catch(e){ note.textContent='connection lost — showing last known board'; }
+  };
+  tick(); setInterval(tick, 2500);
+}
+
+/* resume a locked device straight to its result */
+const prev=saved();
+if(prev && validPolicy(prev.policy)) showResult(prev);
+</script>
+</body>
+</html>
