@@ -81,6 +81,7 @@
   .board td.sc{font-family:Menlo,monospace;white-space:nowrap}
   .board tr.house td{color:#8a6d1f;font-weight:bold}
   .board tr.champ td{color:var(--green);font-weight:bold}
+  .board tr.pkg td{color:var(--faint);font-style:italic}
   .board tr.me td{background:#f3ece0}
   .cloudnote{text-align:center;font:11px Menlo,monospace;color:#6f6656;margin-top:8px}
   .hidden{display:none}
@@ -318,13 +319,43 @@ function showResult(rec){
 }
 function localRow(rec){ return {name:rec.name, policy:rec.policy, me:true}; }
 
+/* ===== board furniture =====
+   PKGS = the six packages from the report (scores recomputed, so they always
+   match §7 exactly). SEED = warm-up hands so the board is never empty; all sit
+   below the House. Delete the SEED array to show only real players. */
+const PKGS=[
+ {name:'A1 Status quo', policy:{who:0,pm:0,prod:0,prot:0,money:0,integ:0}, pkg:true},
+ {name:'A2 Public-health package', policy:{who:1,pm:2,prod:1,prot:2,money:2,integ:1}, pkg:true},
+ {name:'A3 Market-liberal package', policy:{who:0,pm:1,prod:0,prot:1,money:0,integ:0}, pkg:true},
+ {name:'A4 League-integrity package', policy:{who:1,pm:1,prod:1,prot:1,money:0,integ:1}, pkg:true},
+ {name:'🎩 The House (A5 Balanced)', policy:A5, house:true},
+ {name:'A6 Full prohibition', policy:{who:2,pm:2,prod:2,prot:2,money:1,integ:1}, pkg:true},
+];
+const SEED=[
+ {name:'Maya K.',   policy:{who:0,pm:1,prod:2,prot:2,money:0,integ:1}},
+ {name:'Jordan T.', policy:{who:1,pm:2,prod:2,prot:2,money:1,integ:1}},
+ {name:'Diego A.',  policy:{who:0,pm:2,prod:1,prot:1,money:1,integ:1}},
+ {name:'Priya S.',  policy:{who:0,pm:1,prod:1,prot:2,money:0,integ:1}},
+ {name:'Leo M.',    policy:{who:0,pm:1,prod:1,prot:2,money:1,integ:0}},
+ {name:'Emma R.',   policy:{who:1,pm:1,prod:1,prot:2,money:1,integ:0}},
+ {name:'Ethan B.',  policy:{who:0,pm:0,prod:0,prot:2,money:2,integ:1}},
+ {name:'Chloe W.',  policy:{who:1,pm:0,prod:1,prot:0,money:2,integ:0}},
+ {name:'Ravi N.',   policy:{who:0,pm:0,prod:1,prot:0,money:0,integ:0}},
+ {name:'Sofia L.',  policy:{who:1,pm:2,prod:0,prot:2,money:0,integ:1}},
+ {name:'Hana Y.',   policy:{who:1,pm:1,prod:0,prot:2,money:1,integ:0}},
+ {name:'Marcus O.', policy:{who:1,pm:2,prod:0,prot:2,money:1,integ:0}},
+ {name:'Zoe P.',    policy:{who:0,pm:2,prod:0,prot:0,money:0,integ:0}},
+ {name:'Kai F.',    policy:{who:1,pm:0,prod:0,prot:0,money:0,integ:0}},
+ {name:'Nina V.',   policy:{who:2,pm:2,prod:0,prot:0,money:0,integ:0}},
+];
+
 /* ===== scoreboard — scores are RECOMPUTED from policy, never trusted ===== */
 function renderBoard(rows){
-  const all=[{name:'🎩 The House (A5)', policy:A5, house:true}, ...rows]
+  const all=[...PKGS, ...SEED, ...rows]
     .map(r=>({...r, mean:meanOf(r.policy)}))
     .sort((a,b)=>b.mean-a.mean);
   $('board').innerHTML='<tr><th>#</th><th>name</th><th>score $B/yr</th></tr>'+
-    all.map((r,i)=>'<tr class="'+(r.house?'house':(r.mean>OUR.mean?'champ':''))+(r.me?' me':'')+'"><td>'+(i+1)+'</td><td>'+
+    all.map((r,i)=>'<tr class="'+(r.house?'house':r.pkg?'pkg':(r.mean>OUR.mean?'champ':''))+(r.me?' me':'')+'"><td>'+(i+1)+'</td><td>'+
       esc(r.name)+(r.me?' (you)':'')+'</td><td class="sc">'+fmt(r.mean)+'</td></tr>').join('');
 }
 function validPolicy(p){ return p && [0,1,2].includes(p.who)&&[0,1,2].includes(p.pm)&&[0,1,2].includes(p.prod)
