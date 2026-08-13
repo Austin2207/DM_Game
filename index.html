@@ -301,17 +301,17 @@ function showResult(rec){
   const pBeatSq=m.us.filter((u,i)=>u>SQ.us[i]).length/NDRAW;
   const sc=$('score');
   sc.textContent=fmt(m.mean);
-  sc.style.color=m.mean>OUR.mean?'var(--green)':m.mean>SQ.mean?'var(--ink)':'var(--accent)';
+  sc.style.color=cents(m.mean)>cents(OUR.mean)?'var(--green)':m.mean>SQ.mean?'var(--ink)':'var(--accent)';
   $('band').textContent='80% of futures: ['+fmt(m.p10)+' … '+fmt(m.p90)+'] · beats status quo in '+(100*pBeatSq).toFixed(0)+'%';
   const lo=-20, hi=0;
   const pos=v=>Math.max(0,Math.min(100,(v-lo)/(hi-lo)*100));
   $('vs').innerHTML=
-    'you <span style="font-family:Menlo">'+fmt(m.mean)+'</span><div class="bar"><div class="fill" style="left:0;width:'+pos(m.mean)+'%;background:'+(m.mean>OUR.mean?'var(--green)':'#8a6d1f')+'"></div></div>'+
+    'you <span style="font-family:Menlo">'+fmt(m.mean)+'</span><div class="bar"><div class="fill" style="left:0;width:'+pos(m.mean)+'%;background:'+(cents(m.mean)>cents(OUR.mean)?'var(--green)':'#8a6d1f')+'"></div></div>'+
     'our hand <span style="font-family:Menlo">'+fmt(OUR.mean)+'</span><div class="bar"><div class="fill" style="left:0;width:'+pos(OUR.mean)+'%;background:var(--gold)"></div></div>'+
     'do nothing <span style="font-family:Menlo">'+fmt(SQ.mean)+'</span><div class="bar"><div class="fill" style="left:0;width:'+pos(SQ.mean)+'%;background:#b9ad91"></div></div>';
   const msg=$('msg');
   if(rec.policy.who===2) msg.innerHTML='Bold. Prohibition… the demand does not disappear — it goes where nobody is watching. 👀';
-  else if(m.mean>OUR.mean) msg.innerHTML='🎩 <b>You beat Congress!</b> …and yes, we knew: 17 of all 486 combos edge past our hand — all within ±$0.6B, inside the error bars. Ours is the one that can actually pass. Take a bow anyway.';
+  else if(cents(m.mean)>cents(OUR.mean)) msg.innerHTML='🎩 <b>You beat Congress!</b> …and yes, we knew: 17 of all 486 combos edge past our hand — all within ±$0.6B, inside the error bars. Ours is the one that can actually pass. Take a bow anyway.';
   else if(m.mean>SQ.mean) msg.innerHTML='Better than doing nothing — but '+fmt(m.mean-OUR.mean)+' behind our hand. One shot, no retries — that is how policy works too.';
   else msg.innerHTML='That is <b>worse than doing nothing at all.</b> The illegal market thanks you for your service.';
   renderBoard([localRow(rec)]);
@@ -332,9 +332,9 @@ const PKGS=[
  {name:'A6 Full prohibition', policy:{who:2,pm:2,prod:2,prot:2,money:1,integ:1}, pkg:true},
 ];
 const SEED=[
- {name:'Maya K.',   policy:{who:0,pm:1,prod:2,prot:2,money:0,integ:1}},
- {name:'Jordan T.', policy:{who:1,pm:2,prod:2,prot:2,money:1,integ:1}},
- {name:'Diego A.',  policy:{who:0,pm:2,prod:1,prot:1,money:1,integ:1}},
+ {name:'Player 1',  policy:{who:0,pm:1,prod:2,prot:2,money:0,integ:1}},
+ {name:'Player 2',  policy:{who:1,pm:2,prod:2,prot:2,money:1,integ:1}},
+ {name:'Player 3',  policy:{who:0,pm:2,prod:1,prot:1,money:1,integ:1}},
  {name:'Priya S.',  policy:{who:0,pm:1,prod:1,prot:2,money:0,integ:1}},
  {name:'Leo M.',    policy:{who:0,pm:1,prod:1,prot:2,money:1,integ:0}},
  {name:'Emma R.',   policy:{who:1,pm:1,prod:1,prot:2,money:1,integ:0}},
@@ -350,12 +350,15 @@ const SEED=[
 ];
 
 /* ===== scoreboard — scores are RECOMPUTED from policy, never trusted ===== */
+/* ties compare at DISPLAY precision: equal shown scores keep arrival order,
+   so the House always outranks a player matching its score */
+const cents=x=>Math.round(x*100);
 function renderBoard(rows){
   const all=[...PKGS, ...SEED, ...rows]
     .map(r=>({...r, mean:meanOf(r.policy)}))
-    .sort((a,b)=>b.mean-a.mean);
+    .sort((a,b)=>cents(b.mean)-cents(a.mean));
   $('board').innerHTML='<tr><th>#</th><th>name</th><th>score $B/yr</th></tr>'+
-    all.map((r,i)=>'<tr class="'+(r.house?'house':r.pkg?'pkg':(r.mean>OUR.mean?'champ':''))+(r.me?' me':'')+'"><td>'+(i+1)+'</td><td>'+
+    all.map((r,i)=>'<tr class="'+(r.house?'house':r.pkg?'pkg':(cents(r.mean)>cents(OUR.mean)?'champ':''))+(r.me?' me':'')+'"><td>'+(i+1)+'</td><td>'+
       esc(r.name)+(r.me?' (you)':'')+'</td><td class="sc">'+fmt(r.mean)+'</td></tr>').join('');
 }
 function validPolicy(p){ return p && [0,1,2].includes(p.who)&&[0,1,2].includes(p.pm)&&[0,1,2].includes(p.prod)
@@ -369,11 +372,18 @@ async function submitCloud(rec){
       body:JSON.stringify({name:rec.name, score:rec.score, policy:rec.policy})});
   }catch(e){}
 }
+/* dev/test rows: hide by name AND by age — everything submitted before the
+   cutoff was our own testing (keep in sync with board.html) */
+const JUNK=new Set(['seedcheck','cloudtest','dedupetest','testing','test','cardv2',
+  'connection test','livetest','a','aa','a1','a2','a3']);
+const MIN_CREATED='2026-08-13T12:30:00Z';
 async function fetchCloud(){
   const r=await fetch(CLOUD.url+'/rest/v1/'+CLOUD.table+'?select=name,policy,created_at&order=created_at.asc&limit=200',
     {headers:{'apikey':CLOUD.anonKey,'Authorization':'Bearer '+CLOUD.anonKey}});
   if(!r.ok) throw new Error(r.status);
-  return (await r.json()).filter(row=>validPolicy(row.policy))
+  return (await r.json())
+    .filter(row=>validPolicy(row.policy)&&row.created_at>MIN_CREATED
+      &&!JUNK.has(String(row.name||'').trim().toLowerCase()))
     .map(row=>({name:String(row.name||'Anonymous').slice(0,18), policy:row.policy}));
 }
 function startPolling(rec){

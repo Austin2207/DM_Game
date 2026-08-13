@@ -139,11 +139,18 @@ function meanOf(pol){ const k=polKey(pol);
 function validPolicy(p){ return p && [0,1,2].includes(p.who)&&[0,1,2].includes(p.pm)&&[0,1,2].includes(p.prod)
   &&[0,1,2].includes(p.prot)&&[0,1,2].includes(p.money)&&[0,1].includes(p.integ); }
 
+/* dev/test rows: hide by name AND by age — everything submitted before the
+   cutoff was our own testing (keep in sync with index.html) */
+const JUNK=new Set(['seedcheck','cloudtest','dedupetest','testing','test','cardv2',
+  'connection test','livetest','a','aa','a1','a2','a3']);
+const MIN_CREATED='2026-08-13T12:30:00Z';
 async function fetchCloud(){
   const r=await fetch(CLOUD.url+'/rest/v1/'+CLOUD.table+'?select=name,policy,created_at&order=created_at.asc&limit=300',
     {headers:{'apikey':CLOUD.anonKey,'Authorization':'Bearer '+CLOUD.anonKey}});
   if(!r.ok) throw new Error(r.status);
-  return (await r.json()).filter(row=>validPolicy(row.policy))
+  return (await r.json())
+    .filter(row=>validPolicy(row.policy)&&row.created_at>MIN_CREATED
+      &&!JUNK.has(String(row.name||'').trim().toLowerCase()))
     .map(row=>({name:String(row.name||'Anonymous').slice(0,18), policy:row.policy}));
 }
 /* PKGS = the six report packages (recomputed, so they match §7 exactly).
@@ -158,9 +165,9 @@ const PKGS=[
  {name:'A6 Full prohibition', policy:{who:2,pm:2,prod:2,prot:2,money:1,integ:1}, pkg:true},
 ];
 const SEED=[
- {name:'Maya K.',   policy:{who:0,pm:1,prod:2,prot:2,money:0,integ:1}},
- {name:'Jordan T.', policy:{who:1,pm:2,prod:2,prot:2,money:1,integ:1}},
- {name:'Diego A.',  policy:{who:0,pm:2,prod:1,prot:1,money:1,integ:1}},
+ {name:'Player 1',  policy:{who:0,pm:1,prod:2,prot:2,money:0,integ:1}},
+ {name:'Player 2',  policy:{who:1,pm:2,prod:2,prot:2,money:1,integ:1}},
+ {name:'Player 3',  policy:{who:0,pm:2,prod:1,prot:1,money:1,integ:1}},
  {name:'Priya S.',  policy:{who:0,pm:1,prod:1,prot:2,money:0,integ:1}},
  {name:'Leo M.',    policy:{who:0,pm:1,prod:1,prot:2,money:1,integ:0}},
  {name:'Emma R.',   policy:{who:1,pm:1,prod:1,prot:2,money:1,integ:0}},
@@ -174,14 +181,18 @@ const SEED=[
  {name:'Kai F.',    policy:{who:1,pm:0,prod:0,prot:0,money:0,integ:0}},
  {name:'Nina V.',   policy:{who:2,pm:2,prod:0,prot:0,money:0,integ:0}},
 ];
+/* ties compare at DISPLAY precision (cents of a $B): equal shown scores keep
+   arrival order — packages/House first, then seeds, then players by
+   created_at — so the House always outranks a player matching its score */
+const cents=x=>Math.round(x*100);
 function render(rows){
   const all=[...PKGS, ...SEED, ...rows]
     .map(r=>({...r, mean:meanOf(r.policy)}))
-    .sort((a,b)=>b.mean-a.mean);
+    .sort((a,b)=>cents(b.mean)-cents(a.mean));
   const shown=all.slice(0,MAXROWS);
   document.getElementById('board').innerHTML=
     '<tr><th></th><th>name</th><th style="text-align:right">score $B/yr</th></tr>'+
-    shown.map((r,i)=>'<tr class="'+(r.house?'house':r.pkg?'pkg':(r.mean>OUR.mean?'champ':''))+'">'+
+    shown.map((r,i)=>'<tr class="'+(r.house?'house':r.pkg?'pkg':(cents(r.mean)>cents(OUR.mean)?'champ':''))+'">'+
       '<td class="rank">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="sc">'+fmt(r.mean)+'</td></tr>').join('')+
     (all.length>MAXROWS?'<tr><td colspan="3" class="more">… and '+(all.length-MAXROWS)+' more hands</td></tr>':'');
 }
@@ -192,7 +203,7 @@ async function tick(){
     render(rows);
     const n=rows.length+SEED.length;
     count.textContent=n+' challenger'+(n===1?'':'s')+' · beats our hand: '+
-      rows.filter(r=>meanOf(r.policy)>OUR.mean).length;
+      rows.filter(r=>cents(meanOf(r.policy))>cents(OUR.mean)).length;
     count.classList.remove('offline');
   }catch(e){
     count.textContent='connection lost — retrying…';
