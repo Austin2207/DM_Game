@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14110d">
+<title>Beat Our Hand — Live Scoreboard</title>
+<style>
+  :root{--paper:#f6f1e7;--card:#fbf8f1;--ink:#211d16;--faint:#6f6656;--line:#d8cfba;
+        --accent:#a63d2f;--green:#3f7050;--gold:#c9a227;--stage:#14110d}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:radial-gradient(ellipse 120% 70% at 50% 0%, #2a241c 0%, var(--stage) 60%);
+       background-attachment:fixed;min-height:100vh;color:var(--paper);
+       font-family:Georgia,'Iowan Old Style',serif;padding:4vh 4vw}
+  .split{display:grid;grid-template-columns:minmax(280px,420px) 1fr;gap:5vw;
+         max-width:1500px;margin:0 auto;align-items:start}
+  @media(max-width:860px){.split{grid-template-columns:1fr}}
+  aside{text-align:center}
+  aside h1{font-size:clamp(1.6rem,2.6vw,2.4rem);font-weight:normal;margin-bottom:1.2vh}
+  aside h1 .tophat{color:var(--gold)}
+  .qr{width:min(100%,360px);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.55);margin:1.5vh 0}
+  .scan{font-size:clamp(1rem,1.5vw,1.3rem);color:#d8cfba;font-style:italic;line-height:1.7}
+  .url{font:clamp(.85rem,1.2vw,1.05rem) Menlo,monospace;color:var(--gold);margin-top:.8vh}
+  .ourline{margin-top:2.2vh;font-size:clamp(.95rem,1.3vw,1.15rem);color:#b9ad91}
+  .ourline b{font-family:Menlo,monospace;color:var(--gold)}
+  main h2{font-size:clamp(1.3rem,2vw,1.9rem);font-weight:normal;display:flex;align-items:center;gap:.6em}
+  .dot{width:.55em;height:.55em;border-radius:50%;background:var(--green);display:inline-block;
+       animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .count{color:#b9ad91;font-size:clamp(.9rem,1.3vw,1.1rem);font-style:italic;margin:.6vh 0 1.6vh}
+  table{width:100%;border-collapse:collapse;font-size:clamp(1rem,1.7vw,1.5rem)}
+  td,th{padding:.55em .5em;border-bottom:1px solid #3a332a;text-align:left}
+  th{font-style:italic;font-weight:normal;color:var(--faint);font-size:.75em}
+  td.sc{font-family:Menlo,monospace;white-space:nowrap;text-align:right}
+  tr.house td{color:var(--gold);font-weight:bold}
+  tr.champ td{color:#7fbf98;font-weight:bold}
+  td.rank{color:var(--faint);width:2.2em}
+  .more{color:var(--faint);font-style:italic;padding:.6em .5em;font-size:.85em}
+  .offline{color:var(--accent);font-style:italic}
+</style>
+</head>
+<body>
+<div class="split">
+  <aside>
+    <h1><span class="tophat">🎩</span> Beat Our Hand</h1>
+    <img class="qr" src="qr-game.png" alt="QR code to play">
+    <div class="scan">Scan. Play. One shot —<br>no going back.</div>
+    <div class="url">beatourhand.vercel.app</div>
+    <div class="ourline">Our hand — the Balanced Package — scores <b>−$3.74B</b>/yr.<br>Think you can do better?</div>
+  </aside>
+  <main>
+    <h2>🏆 Live scoreboard <span class="dot"></span></h2>
+    <div class="count" id="count">connecting…</div>
+    <table id="board"></table>
+  </main>
+</div>
+
+<script>
+'use strict';
+const CLOUD={url:'https://oigvyeotjigzfhlmmnsy.supabase.co',
+             anonKey:'sb_publishable_9BVVnJS2nWw0YV2xc3o9gA_KKJ8eEMW',
+             table:'scores'};
+const MAXROWS=18;
+
+/* ===== engine — verbatim from federal-model-v2.html (same seed, same numbers) ===== */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; } }
+function tri(u, lo, md, hi){ const f=(md-lo)/(hi-lo);
+  return u<f ? lo+Math.sqrt(u*(hi-lo)*(md-lo)) : hi-Math.sqrt((1-u)*(hi-lo)*(hi-md)); }
+const THETA=[{id:'nRisk',lo:0.75,md:1,hi:1.3},{id:'nProb',lo:0.7,md:1,hi:1.4},{id:'lossMult',lo:0.75,md:1,hi:1.3},
+ {id:'lamP',lo:0.35,md:0.55,hi:0.8},{id:'lamR',lo:0.1,md:0.2,hi:0.35},{id:'ilMult',lo:1.2,md:1.5,hi:2.2},
+ {id:'attempts',lo:5,md:10,hi:18},{id:'caseCost',lo:0.1,md:0.3,hi:1.0},{id:'eff',lo:0.5,md:1,hi:1.3}];
+const NDRAW=1500;
+const DRAWS=(()=>{const rng=mulberry32(20260727);const out=[];
+  for(let i=0;i<NDRAW;i++){const t={};THETA.forEach(p=>t[p.id]=tri(rng(),p.lo,p.md,p.hi));out.push(t);}return out;})();
+const SEG=[{id:'rec',n:50,loss:100,ch:[0.82,0.02,0.16]},{id:'risk',n:8.5,loss:900,ch:[0.77,0.01,0.22]},
+           {id:'prob',n:1.5,loss:6500,ch:[0.63,0.02,0.35]}];
+const W={wS:1,wI:1,cs:0};
+function evaluate(pol, th){
+  const eff=th.eff; const dev=m=>1-(1-m)*eff;
+  const chH0={}; SEG.forEach(s0=>chH0[s0.id]=s0.ch[0]+s0.ch[1]*1.15+s0.ch[2]*th.ilMult);
+  const segs=SEG.map(s=>{let n=s.n*(s.id==='risk'?th.nRisk:s.id==='prob'?th.nProb:1);
+    return {id:s.id,L:n*s.loss*th.lossMult/1000,ch:[...s.ch]};});
+  segs.forEach(s=>{
+    if(pol.who===1){s.L*=dev(s.id==='rec'?0.90:s.id==='risk'?0.92:0.95);s.ch[2]+=0.02;s.ch[0]-=0.02;}
+    else if(pol.who===2){s.L*=dev(s.id==='rec'?0.30:s.id==='risk'?0.55:0.80);s.ch=[0,0,1];}
+    if(pol.pm===2&&pol.who!==2){const pms=s.ch[1];s.ch[1]=0;s.ch[0]+=pms*0.6;s.ch[2]+=pms*0.25;s.L*=(1-pms*0.15*eff);}
+    if(pol.pm===1&&pol.who!==2){s.ch[1]*=1.3;s.ch[2]-=Math.min(s.ch[2],0.03);s.ch[0]=1-s.ch[1]-s.ch[2];}
+    if(pol.prod>=1&&pol.who!==2&&s.id==='prob'){s.ch[2]+=0.03;s.ch[0]-=0.03;}
+    if(pol.prot===1&&pol.who!==2){s.ch[2]+=0.01;s.ch[0]-=0.01;}
+    if(pol.prot===2&&pol.who!==2){const p=(s.id==='prob'?0.06:0.02);s.ch[2]+=p;s.ch[0]-=p;}
+    if(pol.money>=1&&pol.who!==2){s.ch[2]+=0.02;s.ch[0]-=0.02;}
+    s.ch=s.ch.map(x=>Math.max(0,x)); const tot=s.ch[0]+s.ch[1]+s.ch[2]; s.ch=s.ch.map(x=>x/tot);
+    const reg=s.ch[0]+s.ch[1]; let cut=1;
+    if(pol.prod===1)cut*=dev(s.id==='prob'?0.78:s.id==='risk'?0.90:0.97);
+    if(pol.prod===2)cut*=dev(s.id==='prob'?0.62:s.id==='risk'?0.78:0.88);
+    if(pol.prot===1)cut*=dev(s.id==='prob'?0.93:s.id==='risk'?0.96:1);
+    if(pol.prot===2)cut*=dev(s.id==='prob'?0.78:s.id==='risk'?0.88:0.99);
+    s.L*=(1-reg*(1-cut));
+  });
+  let Ll=0,Lp=0,Li=0;
+  segs.forEach(s=>{Ll+=s.L*s.ch[0];Lp+=s.L*s.ch[1];Li+=s.L*s.ch[2];});
+  const totL=Ll+Lp+Li;
+  const tax=pol.money===0?0.22:0.30;
+  const excise=pol.who===2?0:Ll*0.0245;
+  const earm=pol.money===2?0.5*excise:0;
+  const pmT=pol.pm===1?Lp*tax:0;
+  const revenue=(pol.who===2?0:Ll*tax)+excise+pmT-earm;
+  const protF=pol.prot===2?dev(0.90):pol.prot===1?dev(0.97):1;
+  const pmH=pol.pm===1?1.0:1.15;
+  let harm=0;
+  segs.forEach(s=>{const lam=s.id==='prob'?th.lamP:s.id==='risk'?th.lamR:0;
+    const chHv=(s.ch[0]*protF+s.ch[1]*pmH*protF+s.ch[2]*th.ilMult)/chH0[s.id];
+    harm+=lam*s.L*chHv;});
+  if(pol.money===2)harm*=(1-0.03*eff);
+  const ilSh=totL>0?Li/totL:1;
+  const prodF=1-(1-(pol.prod===2?0.35:pol.prod===1?0.5:1))*(1-ilSh);
+  const integF=1-(1-(pol.integ===1?dev(0.5):1))*(1-ilSh);
+  const monF=Math.min(2.0,0.6+0.4*ilSh/0.26);
+  const integrity=th.attempts*Math.max(0.12,prodF*integF*monF)*th.caseCost;
+  const admin=(pol.who===2?0.5:0)+(pol.integ===1?0.02:0)+(pol.prot>0?0.02:0)+(pol.pm===1?0.01:0);
+  return revenue - W.wS*harm - W.wI*integrity - admin;
+}
+function mc(pol){ const us=DRAWS.map(t=>evaluate(pol,t));
+  return {mean:us.reduce((a,b)=>a+b,0)/us.length}; }
+
+/* ===== board ===== */
+const A5={who:0,pm:1,prod:1,prot:1,money:2,integ:1};
+const OUR=mc(A5);
+const fmt=x=>(x<0?'−':'+')+'$'+Math.abs(x).toFixed(2)+'B';
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const scoreCache=new Map();
+const polKey=p=>JSON.stringify([p.who,p.pm,p.prod,p.prot,p.money,p.integ]);
+function meanOf(pol){ const k=polKey(pol);
+  if(!scoreCache.has(k)) scoreCache.set(k, mc(pol).mean); return scoreCache.get(k); }
+function validPolicy(p){ return p && [0,1,2].includes(p.who)&&[0,1,2].includes(p.pm)&&[0,1,2].includes(p.prod)
+  &&[0,1,2].includes(p.prot)&&[0,1,2].includes(p.money)&&[0,1].includes(p.integ); }
+
+async function fetchCloud(){
+  const r=await fetch(CLOUD.url+'/rest/v1/'+CLOUD.table+'?select=name,policy,created_at&order=created_at.asc&limit=300',
+    {headers:{'apikey':CLOUD.anonKey,'Authorization':'Bearer '+CLOUD.anonKey}});
+  if(!r.ok) throw new Error(r.status);
+  return (await r.json()).filter(row=>validPolicy(row.policy))
+    .map(row=>({name:String(row.name||'Anonymous').slice(0,18), policy:row.policy}));
+}
+function render(rows){
+  const all=[{name:'🎩 The House (A5)', policy:A5, house:true}, ...rows]
+    .map(r=>({...r, mean:meanOf(r.policy)}))
+    .sort((a,b)=>b.mean-a.mean);
+  const shown=all.slice(0,MAXROWS);
+  document.getElementById('board').innerHTML=
+    '<tr><th></th><th>name</th><th style="text-align:right">score $B/yr</th></tr>'+
+    shown.map((r,i)=>'<tr class="'+(r.house?'house':(r.mean>OUR.mean?'champ':''))+'">'+
+      '<td class="rank">'+(i+1)+'</td><td>'+esc(r.name)+'</td><td class="sc">'+fmt(r.mean)+'</td></tr>').join('')+
+    (all.length>MAXROWS?'<tr><td colspan="3" class="more">… and '+(all.length-MAXROWS)+' more hands</td></tr>':'');
+}
+async function tick(){
+  const count=document.getElementById('count');
+  try{
+    const rows=await fetchCloud();
+    render(rows);
+    count.textContent=rows.length+' challenger'+(rows.length===1?'':'s')+' · beats our hand: '+
+      rows.filter(r=>meanOf(r.policy)>OUR.mean).length;
+    count.classList.remove('offline');
+  }catch(e){
+    count.textContent='connection lost — retrying…';
+    count.classList.add('offline');
+  }
+}
+/* ?qr=0 → board-only mode for embedding in the presentation site */
+if(new URLSearchParams(location.search).get('qr')==='0'){
+  document.querySelector('aside').style.display='none';
+  document.querySelector('.split').style.gridTemplateColumns='1fr';
+}
+render([]); tick(); setInterval(tick, 2000);
+</script>
+</body>
+</html>
