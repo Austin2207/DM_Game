@@ -133,7 +133,9 @@
    Supabase free tier: create table `scores` (see README.md in this folder),
    then paste the project URL and anon key here. The board RECOMPUTES every
    score from the stored policy, so a tampered score field changes nothing. */
-const CLOUD={url:'', anonKey:'', table:'scores'};
+const CLOUD={url:'https://oigvyeotjigzfhlmmnsy.supabase.co',
+             anonKey:'sb_publishable_9BVVnJS2nWw0YV2xc3o9gA_KKJ8eEMW',
+             table:'scores'};
 
 /* ===== engine — verbatim from federal-model-v2.html (same seed, same numbers) ===== */
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
@@ -214,7 +216,8 @@ document.getElementById('ourVal').textContent='−$'+Math.abs(OUR.mean).toFixed(
 const fmt=x=>(x<0?'−':'+')+'$'+Math.abs(x).toFixed(2)+'B';
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const scoreCache=new Map();
-function meanOf(pol){ const k=JSON.stringify([pol.who,pol.pm,pol.prod,pol.prot,pol.money,pol.integ]);
+const polKey=p=>JSON.stringify([p.who,p.pm,p.prod,p.prot,p.money,p.integ]);
+function meanOf(pol){ const k=polKey(pol);
   if(!scoreCache.has(k)) scoreCache.set(k, mc(pol).mean); return scoreCache.get(k); }
 
 const LSKEY='beat-our-hand-lock';
@@ -334,12 +337,14 @@ function startPolling(rec){
       const rows=await fetchCloud();
       let mine=false;
       const marked=rows.map(r=>{ if(!mine && r.name===rec.name &&
-        JSON.stringify(r.policy)===JSON.stringify(rec.policy)){mine=true;return {...r,me:true};} return r;});
+        polKey(r.policy)===polKey(rec.policy)){mine=true;return {...r,me:true};} return r;});
       renderBoard(mine?marked:[...marked, localRow(rec)]);
       note.textContent='live · '+rows.length+' challenger'+(rows.length===1?'':'s');
     }catch(e){ note.textContent='connection lost — showing last known board'; }
   };
-  tick(); setInterval(tick, 2500);
+  tick();
+  if(startPolling.timer) clearInterval(startPolling.timer);
+  startPolling.timer=setInterval(tick, 2500);
 }
 
 /* resume a locked device straight to its result */
