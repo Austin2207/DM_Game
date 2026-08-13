@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14110d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg transform='rotate(10 62 48)'%3E%3Crect x='36' y='6' width='50' height='74' rx='9' fill='%23fff' stroke='%23000' stroke-width='4'/%3E%3Cpath d='M73 18l5.5 7.5L73 33l-5.5-7.5z' fill='%23000'/%3E%3C/g%3E%3Cg transform='rotate(-8 38 56)'%3E%3Crect x='10' y='16' width='54' height='78' rx='9' fill='%23000'/%3E%3Cpath d='M37 40l10 14-10 14-10-14z' fill='%23fff'/%3E%3Cpath d='M19 26l5 6.5-5 6.5-5-6.5z' fill='%23fff'/%3E%3C/g%3E%3C/svg%3E">
 <title>Beat Our Hand</title>
 <style>
   :root{--paper:#f6f1e7;--card:#fbf8f1;--ink:#211d16;--faint:#6f6656;--line:#d8cfba;
@@ -24,21 +25,32 @@
         color:var(--stage);border-radius:8px;cursor:pointer;white-space:nowrap;font-weight:bold}
   .lock:disabled{opacity:.4}
   .big{font-size:1.2rem;padding:14px 38px}
-  .lcard{background:var(--card);color:var(--ink);border-radius:12px;padding:14px 14px 12px;
-         box-shadow:0 8px 24px rgba(0,0,0,.5), 0 0 0 1px #00000022;position:relative;
-         transform:rotate(var(--tilt,0deg));margin:14px 0}
-  .lcard .suit{position:absolute;top:8px;left:10px;font-size:1rem}
-  .lcard .suit.red{color:var(--accent)}
-  .lcard .corner{position:absolute;bottom:8px;right:10px;font-size:1rem;transform:rotate(180deg)}
-  .lcard h3{font-size:1rem;text-align:center;margin:2px 0 10px}
-  .opt{display:block;width:100%;text-align:left;font:inherit;font-size:.92rem;margin:6px 0;
-       padding:12px 12px;border:1.5px solid var(--line);background:none;border-radius:8px;
-       cursor:pointer;color:var(--ink);-webkit-tap-highlight-color:transparent}
+  .lcard{background:var(--card);color:var(--ink);border-radius:18px;position:relative;
+         width:min(92vw, 72vh * 0.716, 430px);aspect-ratio:63/88;margin:1.5vh auto 0;
+         box-shadow:0 14px 44px rgba(0,0,0,.55), 0 0 0 1px #00000022}
+  .lcard .cnr{position:absolute;display:flex;flex-direction:column;align-items:center;
+         line-height:.95;gap:1px}
+  .lcard .cnr .rank{font-size:1.5rem;font-weight:bold}
+  .lcard .cnr .csuit{font-size:1.5rem}
+  .lcard .cnr.red{color:var(--accent)}
+  .lcard .tl{top:12px;left:14px}
+  .lcard .br{bottom:12px;right:14px;transform:rotate(180deg)}
+  .lcard .wm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+         font-size:15rem;opacity:.055;pointer-events:none;user-select:none}
+  .lcard .frame{position:absolute;inset:44px 30px;border:1.5px solid #c9bda0;border-radius:8px;
+         display:flex;flex-direction:column;justify-content:center;padding:16px 14px}
+  .lcard .frame::before{content:'';position:absolute;inset:4px;border:1px solid #ddd3bc;
+         border-radius:5px;pointer-events:none}
+  .lcard h3{font-size:1.15rem;text-align:center;margin-bottom:16px;position:relative;z-index:1}
+  .opt{display:block;width:100%;text-align:left;font:inherit;font-size:.95rem;margin:7px 0;
+       padding:13px 13px;border:1.5px solid var(--line);background:#fbf8f1;border-radius:8px;
+       cursor:pointer;color:var(--ink);-webkit-tap-highlight-color:transparent;
+       position:relative;z-index:1}
   .opt.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
   .progress{font:13px Menlo,monospace;color:#b9ad91;text-align:center;margin:6px 0 2px}
-  @keyframes dealin{from{opacity:0;transform:translateY(18px) rotate(var(--tilt,0deg)) scale(.97)}
-    to{opacity:1;transform:translateY(0) rotate(var(--tilt,0deg))}}
-  .lcard.deal{animation:dealin .28s ease-out}
+  @keyframes dealin{from{opacity:0;transform:translateY(26px) scale(.955)}
+    to{opacity:1;transform:none}}
+  .lcard.deal{animation:dealin .3s ease-out}
   #blackout{position:fixed;inset:0;background:#000;z-index:50;display:flex;align-items:center;
        justify-content:center;padding:24px;opacity:0;pointer-events:none;transition:opacity .6s}
   #blackout.show{opacity:1;pointer-events:auto}
@@ -234,6 +246,7 @@ $('startBtn').addEventListener('click',()=>{
 /* stage 2: warning acknowledged → deal card 1 */
 $('dealBtn').addEventListener('click',()=>{
   $('landing').classList.add('hidden');
+  $('resultView').classList.add('hidden');
   $('playView').classList.remove('hidden');
   renderCard(0);
   $('blackout').classList.remove('show');
@@ -245,11 +258,13 @@ function renderCard(i){
   const cardsEl=$('cards');
   cardsEl.innerHTML='';
   const d=document.createElement('div'); d.className='lcard deal';
-  d.style.setProperty('--tilt',((i%3)-1)*0.8+'deg');
-  d.innerHTML='<div class="suit'+(lv.red?' red':'')+'">'+lv.suit+'</div>'+
-    '<div class="corner'+(lv.red?' red':'')+'">'+lv.suit+'</div>'+
-    '<h3>'+lv.name+'</h3>'+
-    lv.opts.map((o,j)=>'<button class="opt" data-lv="'+lv.id+'" data-v="'+j+'">'+o+'</button>').join('');
+  const cnr='<span class="rank">'+(i+1)+'</span><span class="csuit">'+lv.suit+'</span>';
+  d.innerHTML='<div class="cnr tl'+(lv.red?' red':'')+'">'+cnr+'</div>'+
+    '<div class="cnr br'+(lv.red?' red':'')+'">'+cnr+'</div>'+
+    '<div class="wm'+(lv.red?' red':'')+'" style="color:'+(lv.red?'var(--accent)':'var(--ink)')+'">'+lv.suit+'</div>'+
+    '<div class="frame"><h3>'+lv.name+'</h3>'+
+    lv.opts.map((o,j)=>'<button class="opt" data-lv="'+lv.id+'" data-v="'+j+'">'+o+'</button>').join('')+
+    '</div>';
   cardsEl.appendChild(d);
 }
 document.addEventListener('click',e=>{
